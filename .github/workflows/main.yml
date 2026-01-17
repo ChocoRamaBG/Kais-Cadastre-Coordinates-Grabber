@@ -1,29 +1,35 @@
-name: Cadastre_Scraper
+name: Cadastre_Scraper_V_B
 
 on:
-  workflow_dispatch: # Позволява ти ръчно пускане с бутон
+  workflow_dispatch: # Позволява ти ръчно пускане с бутона "Run workflow"
 
 jobs:
-  scrape:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+    - name: 🛠️ Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-      - name: Run Scraper
-        run: python -u scraper.py
+    - name: 🚀 Run Scraper
+      # -u казва на Python да принтира веднага координатите, а не да чака края
+      run: python -u scraper.py
 
-      - name: Upload Result
-        uses: actions/upload-artifact@v4
-        with:
-          name: scraper-results
-          path: Gathered_Sofia_Coords.xlsx
+    - name: 📦 Upload Artifacts
+      # Това запазва файла, за да можеш да си го изтеглиш
+      if: always() # Качва файла дори ако скриптът гръмне по средата
+      uses: actions/upload-artifact@v4
+      with:
+        name: coordinates-results
+        path: Gathered_Sofia_Coords.xlsx
+        retention-days: 5 # Пази файла 5 дни
