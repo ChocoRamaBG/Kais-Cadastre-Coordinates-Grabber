@@ -1,68 +1,35 @@
-name: Infinite Scraper of Sofia
+name: Cadastre_Scraper_V_B
 
 on:
-push:
-branches:
-- main
-workflow_dispatch: # Allows manual button click start
-schedule:
-- cron: '0 */6 * * *' # Backup: Runs every 6 hours just in case
-
-permissions:
-contents: write
+  workflow_dispatch: # Позволява ти ръчно пускане с бутона "Run workflow"
 
 jobs:
-scrape_job:
-runs-on: ubuntu-latest
-timeout-minutes: 360 # Hard limit 6h
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout Code
-    uses: actions/checkout@v4
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
 
-  - name: Setup Python
-    uses: actions/setup-python@v4
-    with:
-      python-version: '3.10'
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
 
-  - name: Install Chrome & Dependencies
-    run: |
-      sudo apt-get update
-      sudo apt-get install -y google-chrome-stable
-      pip install pandas openpyxl selenium webdriver-manager xlsxwriter
+    - name: 🛠️ Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-  - name: Run Scraper (The Grind)
-    id: run_script
-    run: |
-      # We capture the exit code to decide if we need to restart
-      python main_scraper.py
-    continue-on-error: true # Don't mark build as red if script exits with 1 (Time limit)
+    - name: 🚀 Run Scraper
+      # -u казва на Python да принтира веднага координатите, а не да чака края
+      run: python -u scraper.py
 
-  - name: Commit Progress
-    uses: stefanzweifel/git-auto-commit-action@v5
-    with:
-      commit_message: "🤖 Update Coordinates: Partial Progress Save"
-      file_pattern: 'Gathered_Sofia_Coords.xlsx'
-
-  - name: Check if we need to restart
-    if: steps.run_script.outcome == 'failure' || steps.run_script.outcome == 'success'
-    run: |
-      # If the python script exited with 1 (Time Limit), we restart.
-      # If it exited with 0, we are done.
-      # Note: 'continue-on-error' makes the step outcome 'success' usually, 
-      # so we check the actual file modifications or trust the self-trigger logic below.
-      echo "Checking if we should restart..."
-
-  - name: Trigger Next Run (Infinite Loop Logic)
-    if: steps.run_script.outputs.exit_code != '0' # Assuming you handle exit codes or just always trigger until done
-    # Using a specialized action or simply gh cli to restart
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    run: |
-      # Logic: If the file was changed, likely we aren't done. 
-      # Or if we want to be aggressive, just trigger again.
-      # But let's check if the script returned exit code 1 (Time limit reached)
-      # Since we used continue-on-error, we need a smarter way.
-      
-      # EASIER WAY: Just trigger it. If script finishes instantly next time (0 items left), it exits 0 fast.
-      gh workflow run scrape.yml
+    - name: 📦 Upload Artifacts
+      # Това запазва файла, за да можеш да си го изтеглиш
+      if: always() # Качва файла дори ако скриптът гръмне по средата
+      uses: actions/upload-artifact@v4
+      with:
+        name: coordinates-results
+        path: Gathered_Sofia_Coords.xlsx
+        retention-days: 5 # Пази файла 5 дни
