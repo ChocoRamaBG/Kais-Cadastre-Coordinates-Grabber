@@ -1,0 +1,52 @@
+name: Infinite Scraper Loop
+
+on:
+  workflow_dispatch: # Ръчен старт
+  repository_dispatch:
+    types: [next-chunk]
+
+# Трябват ни права да пишем в репото, иначе "ьок" комит
+permissions:
+  contents: write
+
+jobs:
+  scrape-job:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # 6 часа hard limit от GitHub
+
+    steps:
+      - name: 📥 Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 🛠️ Install Dependencies
+        run: |
+          pip install pandas openpyxl selenium webdriver-manager xlsxwriter
+
+      - name: 🚀 Run The Grind
+        id: run_script
+        # continue-on-error: true е важно, за да не спре целия job, ако скриптът върне exit code 1
+        continue-on-error: true
+        run: python -u scraper.py
+
+      - name: 💾 Commit Progress
+        # Комитваме само ако скриптът е върнал 1 (Timeout) или 0 (Успех, за всеки случай)
+        # Използваме bot user, за да не изглежда, че ти си го правил
+        if: steps.run_script.outputs.exit_code != '2' 
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 [Bot] Saved batch of coordinates"
+          file_pattern: 'Gathered_Sofia_Coords.xlsx'
+
+      - name: 🔄 Trigger Next Run
+        # Ако Python е върнал 1 (което значи "Имам още работа, ама времето свърши")
+        if: steps.run_script.outcome == 'failure' 
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "⚠️ Time limit hit. Restarting the matrix..."
+          gh workflow run recursive_scraper.yml
