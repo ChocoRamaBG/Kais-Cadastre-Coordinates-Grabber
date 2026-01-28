@@ -43,10 +43,10 @@ jobs:
           file_pattern: 'Gathered_Sofia_Coords.xlsx'
 
       - name: 🔄 Trigger Next Run
-        # Ако Python е върнал 1 (което значи "Имам още работа, ама времето свърши")
         if: steps.run_script.outcome == 'failure' 
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ТУК Е ПРОМЯНАТА: Ползваме новия таен ключ
+          GH_TOKEN: ${{ secrets.MY_SUPER_PAT }}
         run: |
-          echo "⚠️ Time limit hit. Restarting the matrix..."
+          echo "⚠️ Time limit hit. Restarting the matrix with GOD MODE permissions..."
           gh workflow run recursive_scraper.yml
